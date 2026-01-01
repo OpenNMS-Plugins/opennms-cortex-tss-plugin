@@ -66,7 +66,7 @@
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
         <grpc.version>1.42.3</grpc.version>
         <guava.version>33.2.1-jre</guava.version>
-        <hamcrest.version>2.2</hamcrest.version>
+        <hamcrest.version>3.0</hamcrest.version>
         <java.version>11</java.version>
         <json.version>20240303</json.version>
         <junit.version>4.13.2</junit.version>
