@@ -1,14 +1,18 @@
+---
 version: 2.1
 
 executors:
   build-executor:
     docker:
-      - image: circleci/openjdk:11.0.7-jdk-buster
+      - image: cimg/openjdk:17.0
         environment:
           MAVEN_OPTS: -Xmx1g
   system-test-executor:
     machine:
-      image: ubuntu-2204:current
+      image: ubuntu-2404:current
+  go-executor:
+    docker:
+      - image: cimg/go:1.23
 
 orbs:
   sign-packages: opennms/sign-packages@2.1.3
@@ -42,8 +46,7 @@ commands:
             - v1-dependencies-
       - run:
           name: Compile source without tests
-          command: |
-            mvn -DskipITs=true -DskipTests=true clean install
+          command: make
       - save_cache:
           paths:
             - ~/.m2
@@ -79,6 +82,17 @@ workflows:
             branches:
               only:
                 - master
+      - publish-github-release:
+          context:
+            - github-releases
+          requires:
+            - tests
+          filters:
+            tags:
+              only:
+                - /^v.*/
+            branches:
+              ignore: /.*/
 
 jobs:
   build:
@@ -93,9 +107,11 @@ jobs:
       - attach_workspace:
           at: ~/
       - run:
+          name: Set environment to Java 17
+          command: sudo update-java-alternatives --set java-1.17.0-openjdk-amd64
+      - run:
           name: Run system test with docker-compose
-          command: |
-            mvn -DskipITs=false -DskipTests=false clean install test integration-test
+          command: make integration-tests
       - run:
           name: Save test results
           command: |
@@ -103,10 +119,21 @@ jobs:
             find . -type f -regex ".*/target/failsafe-reports/.*xml" -exec cp {} ~/junit/ \;
             find . -type f -regex ".*/target/surefire-reports/.*xml" -exec cp {} ~/junit/ \;
           when: always
+      - run:
+          name: Collect build artifacts
+          command: |
+            make collect-artifacts
 
       - store_test_results:
           path: ~/junit
 
+      - store_artifacts:
+          path: target/artifacts
+
+      - persist_to_workspace:
+          root: ~/
+          paths:
+            - project
   merge:
     executor: build-executor
 
@@ -145,5 +172,22 @@ jobs:
       - run:
           name: Upload snapshot
           command: |
-            mvn -s .circleci/.circleci.settings.xml -Prelease -DskipTests=true -Dmaven.verify.skip=true -Dmaven.install.skip=true deploy
+            make maven-deploy
 
+  publish-github-release:
+    executor: go-executor
+    working_directory: ~/project
+    steps:
+      - attach_workspace:
+          at: ~/
+      - run:
+          name: Install ghr tool to create GitHub releases and upload artifacts
+          command: go install github.com/tcnksm/ghr@latest
+      - run:
+          name: Publish artifacts as GitHub release
+          command: |
+            export GITHUB_TOKEN="${GH_TOKEN}"
+            mkdir github-release
+            cp target/artifacts/opennms-cortex-tss-plugin.sha256 github-release
+            cp target/artifacts/opennms-cortex-tss-plugin.tar.gz github-release
+            ghr -r ${CIRCLE_PROJECT_REPONAME} $(cat target/artifacts/pom-version.txt) github-release
