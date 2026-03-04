@@ -67,7 +67,7 @@
         <grpc.version>1.42.3</grpc.version>
         <guava.version>33.2.1-jre</guava.version>
         <hamcrest.version>2.2</hamcrest.version>
-        <java.version>11</java.version>
+        <java.version>17</java.version>
         <json.version>20240303</json.version>
         <junit.version>4.13.2</junit.version>
         <karaf.version>4.3.10</karaf.version>
@@ -80,7 +80,7 @@
         <okhttp.version>4.12.0</okhttp.version>
         <jackson.version>2.16.1</jackson.version>
         <okhttp.bundle.version>3.13.1_1</okhttp.bundle.version>
-        <opennms.api.version>1.0.0</opennms.api.version>
+        <opennms.api.version>2.0.0</opennms.api.version>
         <osgi.version>6.0.0</osgi.version>
         <osgi.compendium.version>5.0.0</osgi.compendium.version>
         <protoc.version>3.25.3</protoc.version>
