@@ -3,7 +3,7 @@
     <parent>
         <groupId>org.opennms.plugins.timeseries</groupId>
         <artifactId>cortex-wrap</artifactId>
-        <version>2.0.6-SNAPSHOT</version>
+        <version>2.0.6</version>
     </parent>
     <modelVersion>4.0.0</modelVersion>
     <groupId>org.opennms.plugin.timeseries.cortex.wrap</groupId>
