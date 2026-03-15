@@ -1,0 +1,8 @@
+{
+  "status": "success",
+  "data": [
+    "snmp/1/eth0/mib2-interfaces",
+    "snmp/1/eth1/mib2-interfaces",
+    "snmp/1/nodeSnmp"
+  ]
+}

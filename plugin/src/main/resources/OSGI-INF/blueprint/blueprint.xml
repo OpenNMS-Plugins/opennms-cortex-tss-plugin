@@ -18,6 +18,8 @@
             <cm:property name="bulkheadMaxWaitDuration" value="9223372036854775807" />
             <cm:property name="maxSeriesLookback" value="7776000" />
             <cm:property name="organizationId" value="" />
+            <cm:property name="useLabelValuesForDiscovery" value="false" />
+            <cm:property name="discoveryBatchSize" value="50" />
         </cm:default-properties>
     </cm:property-placeholder>
 
@@ -32,6 +34,8 @@
         <argument value="${bulkheadMaxWaitDuration}" />
         <argument value="${maxSeriesLookback}" />
         <argument value="${organizationId}" />
+        <argument value="${useLabelValuesForDiscovery}" />
+        <argument value="${discoveryBatchSize}" />
     </bean>
 
     <!--Key-value store -->

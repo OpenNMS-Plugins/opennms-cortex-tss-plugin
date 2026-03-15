@@ -111,6 +111,21 @@ public class ResultMapper {
         } else return metric;
     }
 
+    /**
+     * Parses a Prometheus label values API response.
+     * Expected format: {"status":"success","data":["value1","value2",...]}
+     * See: https://prometheus.io/docs/prometheus/latest/querying/api/#querying-label-values
+     */
+    public static List<String> parseLabelValuesResponse(final String json) {
+        JSONObject response = new JSONObject(json);
+        JSONArray data = response.getJSONArray("data");
+        List<String> values = new ArrayList<>(data.length());
+        for (int i = 0; i < data.length(); i++) {
+            values.add(data.getString(i));
+        }
+        return values;
+    }
+
     private static List<Metric> parseMetrics(String json,KeyValueStore store)  {
         try (JsonParser p = JSON_FACTORY.createParser(json)) {
 

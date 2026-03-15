@@ -82,6 +82,23 @@ public class ResultMapperTest {
                 .getValue());
     }
 
+    @Test
+    public void shouldParseLabelValuesResult() throws IOException, URISyntaxException {
+        String json = readStringFromFile("labelValuesResult.json");
+        List<String> values = ResultMapper.parseLabelValuesResponse(json);
+        assertEquals(3, values.size());
+        assertEquals("snmp/1/eth0/mib2-interfaces", values.get(0));
+        assertEquals("snmp/1/eth1/mib2-interfaces", values.get(1));
+        assertEquals("snmp/1/nodeSnmp", values.get(2));
+    }
+
+    @Test
+    public void shouldParseEmptyLabelValuesResult() {
+        String json = "{\"status\":\"success\",\"data\":[]}";
+        List<String> values = ResultMapper.parseLabelValuesResponse(json);
+        assertEquals(0, values.size());
+    }
+
     private String readStringFromFile(final String fileName) throws IOException, URISyntaxException {
             StringBuilder contentBuilder = new StringBuilder();
             try (Stream<String> stream = Files.lines(
