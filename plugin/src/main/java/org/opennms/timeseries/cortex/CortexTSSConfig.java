@@ -1,3 +1,31 @@
+/*******************************************************************************
+ * This file is part of OpenNMS(R).
+ *
+ * Copyright (C) 2021 The OpenNMS Group, Inc.
+ * OpenNMS(R) is Copyright (C) 1999-2021 The OpenNMS Group, Inc.
+ *
+ * OpenNMS(R) is a registered trademark of The OpenNMS Group, Inc.
+ *
+ * OpenNMS(R) is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as published
+ * by the Free Software Foundation, either version 3 of the License,
+ * or (at your option) any later version.
+ *
+ * OpenNMS(R) is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Affero General Public License for more details.
+ *
+ * You should have received a copy of the GNU Affero General Public License
+ * along with OpenNMS(R).  If not, see:
+ *      http://www.gnu.org/licenses/
+ *
+ * For more information contact:
+ *     OpenNMS(R) Licensing <license@opennms.org>
+ *     http://www.opennms.org/
+ *     http://www.opennms.com/
+ *******************************************************************************/
+
 package org.opennms.timeseries.cortex;
 
 import java.util.Objects;
@@ -15,6 +43,8 @@ public class CortexTSSConfig {
     private final long maxSeriesLookback;
     private final String organizationId;
     private final boolean hasOrganizationId;
+    private final boolean useLabelValuesForDiscovery;
+    private final int discoveryBatchSize;
 
     public CortexTSSConfig() {
         this(builder());
@@ -32,6 +62,8 @@ public class CortexTSSConfig {
         this.maxSeriesLookback = builder.maxSeriesLookback;
         this.organizationId = builder.organizationId;
         this.hasOrganizationId = organizationId != null && organizationId.trim().length() > 0;
+        this.useLabelValuesForDiscovery = builder.useLabelValuesForDiscovery;
+        this.discoveryBatchSize = builder.discoveryBatchSize;
     }
 
     /** Will be called via blueprint. The builder can be called when not running as Osgi plugin. */
@@ -45,7 +77,9 @@ public class CortexTSSConfig {
             final long externalTagsCacheSize,
             final long bulkheadMaxWaitDurationInMs,
             final long maxSeriesLookback,
-            final String organizationId) {
+            final String organizationId,
+            final boolean useLabelValuesForDiscovery,
+            final int discoveryBatchSize) {
         this(builder()
                 .writeUrl(writeUrl)
                 .readUrl(readUrl)
@@ -56,7 +90,9 @@ public class CortexTSSConfig {
                 .externalCacheSize(externalTagsCacheSize)
                 .bulkheadMaxWaitDurationInMs(bulkheadMaxWaitDurationInMs)
                 .maxSeriesLookback(maxSeriesLookback)
-                .organizationId(organizationId));
+                .organizationId(organizationId)
+                .useLabelValuesForDiscovery(useLabelValuesForDiscovery)
+                .discoveryBatchSize(discoveryBatchSize));
     }
 
     public String getWriteUrl() {
@@ -101,6 +137,14 @@ public class CortexTSSConfig {
         return organizationId;
     }
 
+    public boolean isUseLabelValuesForDiscovery() {
+        return useLabelValuesForDiscovery;
+    }
+
+    public int getDiscoveryBatchSize() {
+        return discoveryBatchSize;
+    }
+
     public static Builder builder() {
         return new Builder();
     }
@@ -116,6 +160,8 @@ public class CortexTSSConfig {
         private long bulkheadMaxWaitDurationInMs = Long.MAX_VALUE;
         private long maxSeriesLookback = 7776000;
         private String organizationId = null;
+        private boolean useLabelValuesForDiscovery = false;
+        private int discoveryBatchSize = 50;
 
         public Builder writeUrl(final String writeUrl) {
             this.writeUrl = writeUrl;
@@ -166,6 +212,16 @@ public class CortexTSSConfig {
             return this;
         }
 
+        public Builder useLabelValuesForDiscovery(final boolean useLabelValuesForDiscovery) {
+            this.useLabelValuesForDiscovery = useLabelValuesForDiscovery;
+            return this;
+        }
+
+        public Builder discoveryBatchSize(final int discoveryBatchSize) {
+            this.discoveryBatchSize = Math.max(1, discoveryBatchSize);
+            return this;
+        }
+
         public CortexTSSConfig build() {
             return new CortexTSSConfig(this);
         }
@@ -184,6 +240,8 @@ public class CortexTSSConfig {
                 .add("bulkheadMaxWaitDurationInMs=" + bulkheadMaxWaitDurationInMs)
                 .add("maxSeriesLookback=" + maxSeriesLookback)
                 .add("organizationId=" + organizationId)
+                .add("useLabelValuesForDiscovery=" + useLabelValuesForDiscovery)
+                .add("discoveryBatchSize=" + discoveryBatchSize)
                 .toString();
     }
 }

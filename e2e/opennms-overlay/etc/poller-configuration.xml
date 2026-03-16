@@ -1,0 +1,88 @@
+<poller-configuration xmlns="http://xmlns.opennms.org/xsd/config/poller" threads="30" nextOutageId="SELECT nextval('outageNxtId')" serviceUnresponsiveEnabled="false" pathOutageEnabled="false">
+   <!-- Fast polling intervals for smoke testing (30s instead of 5m) -->
+   <node-outage status="on" pollAllIfNoCriticalServiceDefined="true">
+      <critical-service name="ICMP" />
+   </node-outage>
+   <package name="example1">
+      <filter>IPADDR != '0.0.0.0'</filter>
+      <include-range begin="1.1.1.1" end="254.254.254.254" />
+      <include-range begin="::1" end="ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff" />
+      <rrd step="30">
+         <rra>RRA:AVERAGE:0.5:1:2016</rra>
+         <rra>RRA:AVERAGE:0.5:12:1488</rra>
+         <rra>RRA:AVERAGE:0.5:288:366</rra>
+         <rra>RRA:MAX:0.5:288:366</rra>
+         <rra>RRA:MIN:0.5:288:366</rra>
+      </rrd>
+      <service name="ICMP" interval="30000" user-defined="false" status="on">
+         <parameter key="retry" value="1" />
+         <parameter key="timeout" value="3000" />
+         <parameter key="rrd-repository" value="${install.share.dir}/rrd/response" />
+         <parameter key="rrd-base-name" value="icmp" />
+         <parameter key="ds-name" value="icmp" />
+      </service>
+      <service name="SNMP" interval="30000" user-defined="false" status="on">
+         <parameter key="oid" value=".1.3.6.1.2.1.1.2.0" />
+      </service>
+      <service name="HTTP" interval="30000" user-defined="false" status="on">
+         <parameter key="retry" value="1" />
+         <parameter key="timeout" value="3000" />
+         <parameter key="port" value="80" />
+         <parameter key="url" value="/" />
+         <parameter key="rrd-repository" value="${install.share.dir}/rrd/response" />
+         <parameter key="rrd-base-name" value="http" />
+         <parameter key="ds-name" value="http" />
+      </service>
+      <service name="SSH" interval="30000" user-defined="false" status="on">
+         <parameter key="retry" value="1" />
+         <parameter key="banner" value="SSH" />
+         <parameter key="port" value="22" />
+         <parameter key="timeout" value="3000" />
+         <parameter key="rrd-repository" value="${install.share.dir}/rrd/response" />
+         <parameter key="rrd-base-name" value="ssh" />
+         <parameter key="ds-name" value="ssh" />
+      </service>
+      <service name="Postgres" interval="30000" user-defined="false" status="on">
+         <parameter key="retry" value="1" />
+         <parameter key="banner" value="*" />
+         <parameter key="port" value="5432" />
+         <parameter key="timeout" value="3000" />
+      </service>
+      <service name="OpenNMS-JVM" interval="30000" user-defined="false" status="on">
+         <parameter key="port" value="18980" />
+         <parameter key="retry" value="1" />
+         <parameter key="timeout" value="3000" />
+         <parameter key="rrd-repository" value="${install.share.dir}/rrd/response" />
+      </service>
+      <downtime begin="0" interval="30000" /><!-- always poll every 30s -->
+   </package>
+
+   <package name="device-config">
+      <filter>IPADDR != '0.0.0.0'</filter>
+      <rrd step="30">
+         <rra>RRA:AVERAGE:0.5:1:2016</rra>
+      </rrd>
+      <service name="DeviceConfig" interval="30000" user-defined="false" status="on">
+         <pattern><![CDATA[^DeviceConfig-(?<configType>.+)$]]></pattern>
+         <parameter key="rrd-repository" value="${install.share.dir}/rrd/response" />
+         <parameter key="rrd-base-name" value="device-config" />
+         <parameter key="config-type" value="${pattern:configType|requisition:dcb:config-type|default}" />
+         <parameter key="username" value="admin" />
+         <parameter key="password" value="admin" />
+         <parameter key="ssh-port" value="22" />
+         <parameter key="ssh-timeout" value="60000" />
+         <parameter key="schedule" value="never" />
+         <parameter key="retention-period" value="P1Y" />
+         <parameter key="script-file" value="${requisition:dcb:script-file|assets:operating-system|node:os|default}.dcb" />
+      </service>
+      <downtime begin="0" interval="30000" />
+   </package>
+
+   <monitor service="ICMP" class-name="org.opennms.netmgt.poller.monitors.IcmpMonitor" />
+   <monitor service="HTTP" class-name="org.opennms.netmgt.poller.monitors.HttpMonitor" />
+   <monitor service="SNMP" class-name="org.opennms.netmgt.poller.monitors.SnmpMonitor" />
+   <monitor service="SSH" class-name="org.opennms.netmgt.poller.monitors.SshMonitor" />
+   <monitor service="Postgres" class-name="org.opennms.netmgt.poller.monitors.TcpMonitor" />
+   <monitor service="OpenNMS-JVM" class-name="org.opennms.netmgt.poller.monitors.Jsr160Monitor" />
+   <monitor service="DeviceConfig" class-name="org.opennms.features.deviceconfig.monitors.DeviceConfigMonitor" />
+</poller-configuration>

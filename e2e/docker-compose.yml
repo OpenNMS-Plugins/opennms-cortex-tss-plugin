@@ -1,0 +1,124 @@
+version: '3.8'
+
+# Usage:
+#   Prometheus backend (gold standard):  docker-compose --profile prometheus up -d
+#   Thanos backend (scale validation):   docker-compose --profile thanos up -d
+#
+# Only run one profile at a time (they share ports).
+
+services:
+  # ─── Vanilla Prometheus backend ───────────────────────────────────
+  prometheus:
+    image: docker.io/prom/prometheus:v2.53.4
+    profiles: ["prometheus"]
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=30d
+      - --web.enable-remote-write-receiver
+      - --web.listen-address=0.0.0.0:9090
+    volumes:
+      - prometheus-data:/prometheus
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    ports:
+      - "9090:9090"     # Query API + remote write receiver
+
+  opennms-prometheus:
+    image: docker.io/opennms/horizon:35.0.4
+    profiles: ["prometheus"]
+    command: ["-s"]
+    privileged: true
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: opennms
+      POSTGRES_PASSWORD: opennms
+      OPENNMS_DBNAME: opennms
+      JAVA_OPTS: "-Xms512m -Xmx1024m"
+    volumes:
+      - opennms-prometheus-data:/opennms-data
+      - ./opennms-overlay/etc:/opt/opennms-etc-overlay
+      - ./opennms-overlay-prometheus/etc/org.opennms.plugins.tss.cortex.cfg:/opt/opennms-etc-overlay/org.opennms.plugins.tss.cortex.cfg:ro
+      - ./opennms-overlay/deploy:/opt/opennms/deploy
+    ports:
+      - "8980:8980"
+      - "8101:8101"
+    depends_on:
+      - postgres
+      - prometheus
+
+  # ─── Thanos backend ──────────────────────────────────────────────
+  thanos-receive:
+    image: docker.io/thanosio/thanos:v0.35.1
+    profiles: ["thanos"]
+    command:
+      - receive
+      - --tsdb.path=/data
+      - --grpc-address=0.0.0.0:10901
+      - --http-address=0.0.0.0:10902
+      - --remote-write.address=0.0.0.0:19291
+      - --tsdb.retention=30d
+      - --label=receive_replica="0"
+    volumes:
+      - thanos-data:/data
+    ports:
+      - "19291:19291"
+      - "10902:10902"
+      - "10901:10901"
+
+  thanos-query:
+    image: docker.io/thanosio/thanos:v0.35.1
+    profiles: ["thanos"]
+    command:
+      - query
+      - --http-address=0.0.0.0:10902
+      - --grpc-address=0.0.0.0:10903
+      - --store=thanos-receive:10901
+    ports:
+      - "9090:10902"    # Map to 9090 externally so smoke-test.sh uses same port for both backends
+    depends_on:
+      - thanos-receive
+
+  opennms-thanos:
+    image: docker.io/opennms/horizon:35.0.4
+    profiles: ["thanos"]
+    command: ["-s"]
+    privileged: true
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: opennms
+      POSTGRES_PASSWORD: opennms
+      OPENNMS_DBNAME: opennms
+      JAVA_OPTS: "-Xms512m -Xmx1024m"
+    volumes:
+      - opennms-thanos-data:/opennms-data
+      - ./opennms-overlay/etc:/opt/opennms-etc-overlay
+      - ./opennms-overlay-thanos/etc/org.opennms.plugins.tss.cortex.cfg:/opt/opennms-etc-overlay/org.opennms.plugins.tss.cortex.cfg:ro
+      - ./opennms-overlay/deploy:/opt/opennms/deploy
+    ports:
+      - "8980:8980"
+      - "8101:8101"
+    depends_on:
+      - postgres
+      - thanos-receive
+      - thanos-query
+
+  # ─── Shared services ─────────────────────────────────────────────
+  postgres:
+    image: docker.io/postgres:15
+    environment:
+      POSTGRES_USER: opennms
+      POSTGRES_PASSWORD: opennms
+      POSTGRES_DB: opennms
+    volumes:
+      - pg-data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
+volumes:
+  prometheus-data:
+  thanos-data:
+  pg-data:
+  opennms-prometheus-data:
+  opennms-thanos-data:

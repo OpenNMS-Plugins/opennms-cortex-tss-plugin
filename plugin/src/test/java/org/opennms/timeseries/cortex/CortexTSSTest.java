@@ -31,6 +31,8 @@ package org.opennms.timeseries.cortex;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.core.IsEqual.equalTo;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 import static org.opennms.timeseries.cortex.CortexTSS.LABEL_NAME_PATTERN;
 import static org.opennms.timeseries.cortex.CortexTSS.MAX_SAMPLES;
 import static org.opennms.timeseries.cortex.CortexTSS.METRIC_NAME_PATTERN;
@@ -38,14 +40,17 @@ import static org.opennms.timeseries.cortex.CortexTSS.METRIC_NAME_PATTERN;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 import org.junit.Test;
 import org.opennms.integration.api.v1.timeseries.Aggregation;
 import org.opennms.integration.api.v1.timeseries.Tag;
+import org.opennms.integration.api.v1.timeseries.TagMatcher;
 import org.opennms.integration.api.v1.timeseries.TimeSeriesFetchRequest;
 import org.opennms.integration.api.v1.timeseries.immutables.ImmutableMetric;
 import org.opennms.integration.api.v1.timeseries.immutables.ImmutableTag;
+import org.opennms.integration.api.v1.timeseries.immutables.ImmutableTagMatcher;
 import org.opennms.integration.api.v1.timeseries.immutables.ImmutableTimeSeriesFetchRequest;
 
 public class CortexTSSTest {
@@ -100,5 +105,82 @@ public class CortexTSSTest {
         tags.add(new ImmutableTag("resourceId", "response:Klatschmohnwiese:2001\\:1234\\:1234\\:1234\\:1234\\:1234\\:1234\\:1234:icmp"));
         final String query = CortexTSS.tagsToQuery(tags);
         assertEquals("resourceId=\"response:Klatschmohnwiese:192.168.12.34:icmp\", resourceId=\"response:Klatschmohnwiese:2001\\\\:1234\\\\:1234\\\\:1234\\\\:1234\\\\:1234\\\\:1234\\\\:1234:icmp\"", query);
+    }
+
+    @Test
+    public void shouldDetectWildcardDiscoveryQuery() {
+        TagMatcher wildcard = ImmutableTagMatcher.builder()
+                .type(TagMatcher.Type.EQUALS_REGEX)
+                .key("resourceId")
+                .value("^snmp/1/.*$")
+                .build();
+        assertTrue(CortexTSS.isWildcardDiscoveryQuery(Collections.singletonList(wildcard)));
+    }
+
+    @Test
+    public void shouldNotDetectNonWildcardAsDiscovery() {
+        // Exact match
+        TagMatcher exact = ImmutableTagMatcher.builder()
+                .type(TagMatcher.Type.EQUALS)
+                .key("resourceId")
+                .value("snmp/1/eth0")
+                .build();
+        assertFalse(CortexTSS.isWildcardDiscoveryQuery(Collections.singletonList(exact)));
+
+        // Regex but not wildcard pattern
+        TagMatcher specificRegex = ImmutableTagMatcher.builder()
+                .type(TagMatcher.Type.EQUALS_REGEX)
+                .key("resourceId")
+                .value("^snmp/1/[^./]*$")
+                .build();
+        assertFalse(CortexTSS.isWildcardDiscoveryQuery(Collections.singletonList(specificRegex)));
+
+        // Regex on __name__, not resourceId
+        TagMatcher nameRegex = ImmutableTagMatcher.builder()
+                .type(TagMatcher.Type.EQUALS_REGEX)
+                .key("name")
+                .value("^something/.*$")
+                .build();
+        assertFalse(CortexTSS.isWildcardDiscoveryQuery(Collections.singletonList(nameRegex)));
+
+        // Multiple matchers (not a simple wildcard discovery)
+        assertFalse(CortexTSS.isWildcardDiscoveryQuery(
+                List.of(exact, specificRegex)));
+    }
+
+    @Test
+    public void shouldRouteWildcardToLabelValuesWhenEnabled() {
+        CortexTSSConfig enabledConfig = CortexTSSConfig.builder()
+                .useLabelValuesForDiscovery(true)
+                .discoveryBatchSize(25)
+                .build();
+        assertTrue(enabledConfig.isUseLabelValuesForDiscovery());
+        assertEquals(25, enabledConfig.getDiscoveryBatchSize());
+
+        // Wildcard query should be detected
+        TagMatcher wildcard = ImmutableTagMatcher.builder()
+                .type(TagMatcher.Type.EQUALS_REGEX)
+                .key("resourceId")
+                .value("^snmp/fs/MySource/MyNode/.*$")
+                .build();
+        assertTrue(CortexTSS.isWildcardDiscoveryQuery(Collections.singletonList(wildcard)));
+    }
+
+    @Test
+    public void shouldFallBackWhenDisabled() {
+        CortexTSSConfig disabledConfig = CortexTSSConfig.builder()
+                .useLabelValuesForDiscovery(false)
+                .build();
+        assertFalse(disabledConfig.isUseLabelValuesForDiscovery());
+    }
+
+    @Test
+    public void shouldBuildBatchRegex() {
+        List<String> resourceIds = List.of(
+                "snmp/1/eth0/mib2-interfaces",
+                "snmp/1/eth1/mib2-interfaces",
+                "snmp/1/nodeSnmp");
+        String regex = CortexTSS.buildBatchResourceIdRegex(resourceIds);
+        assertEquals("^(snmp/1/eth0/mib2\\-interfaces|snmp/1/eth1/mib2\\-interfaces|snmp/1/nodeSnmp)$", regex);
     }
 }
