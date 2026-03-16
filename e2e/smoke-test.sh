@@ -9,7 +9,11 @@
 #
 # Usage: ./smoke-test.sh [--backend prometheus|thanos]
 #
-set -euo pipefail
+set -uo pipefail
+# NOTE: Do NOT use set -e here. The script tracks pass/fail via counters
+# and returns the correct exit code at the end. Many docker exec + grep
+# calls return non-zero when there are no matches, which is expected and
+# handled — set -e would kill the script on these benign non-zero exits.
 
 # Parse --backend flag
 BACKEND="${1:-auto}"
@@ -68,7 +72,8 @@ esac
 
 find_opennms_container() {
   if [ -n "$CONTAINER_CMD" ]; then
-    $CONTAINER_CMD ps --format "{{.Names}}" 2>/dev/null | grep "_opennms" | head -1
+    # Docker Compose v2 uses hyphens (e2e-opennms-thanos-1), podman-compose uses underscores (e2e_opennms-thanos_1)
+    $CONTAINER_CMD ps --format "{{.Names}}" 2>/dev/null | grep -E "[_-]opennms" | head -1
   fi
 }
 
@@ -120,7 +125,7 @@ echo ""
 echo "--- Test 1.1: Plugin is loaded and active ---"
 CONTAINER=$(find_opennms_container)
 if [ -n "$CONTAINER" ]; then
-  PLUGIN_LOG=$($CONTAINER_CMD exec "$CONTAINER" sh -c 'c=$(grep -c "Blueprint bundle org.opennms.plugins.timeseries.cortex-plugin" /opt/opennms/logs/karaf.log 2>/dev/null); echo "${c:-0}"')
+  PLUGIN_LOG=$($CONTAINER_CMD exec "$CONTAINER" sh -c 'c=$(grep -c "Blueprint bundle org.opennms.plugins.timeseries.cortex-plugin" /opt/opennms/logs/karaf.log 2>/dev/null || true); echo "${c:-0}"')
   if [ "$PLUGIN_LOG" -gt "0" ]; then
     pass "Cortex TSS plugin started ($PLUGIN_LOG time(s) in karaf.log)"
   else
@@ -133,7 +138,7 @@ fi
 echo ""
 echo "--- Test 1.2: TSS integration strategy is active ---"
 if [ -n "$CONTAINER" ]; then
-  TSS_STRATEGY=$($CONTAINER_CMD exec "$CONTAINER" sh -c 'c=$(grep -c "timeseries.strategy=integration" /opt/opennms/etc/opennms.properties.d/cortex.properties 2>/dev/null); echo "${c:-0}"')
+  TSS_STRATEGY=$($CONTAINER_CMD exec "$CONTAINER" sh -c 'c=$(grep -c "timeseries.strategy=integration" /opt/opennms/etc/opennms.properties.d/cortex.properties 2>/dev/null || true); echo "${c:-0}"')
   if [ "$TSS_STRATEGY" -gt "0" ]; then
     pass "TSS integration strategy configured"
   else
@@ -146,7 +151,7 @@ fi
 echo ""
 echo "--- Test 1.3: Label values discovery is enabled ---"
 if [ -n "$CONTAINER" ]; then
-  LV_ENABLED=$($CONTAINER_CMD exec "$CONTAINER" sh -c 'c=$(grep -c "useLabelValuesForDiscovery=true" /opt/opennms/etc/org.opennms.plugins.tss.cortex.cfg 2>/dev/null); echo "${c:-0}"')
+  LV_ENABLED=$($CONTAINER_CMD exec "$CONTAINER" sh -c 'c=$(grep -c "useLabelValuesForDiscovery=true" /opt/opennms/etc/org.opennms.plugins.tss.cortex.cfg 2>/dev/null || true); echo "${c:-0}"')
   if [ "$LV_ENABLED" -gt "0" ]; then
     pass "Label values discovery enabled in config"
   else
@@ -732,7 +737,7 @@ if [ -n "$CONTAINER" ]; then
   # We check the deployed config file rather than grepping for log lines, because
   # the log line depends on OpenNMS internals triggering findMetrics() with regex
   # TagMatchers — which varies by OpenNMS version and is outside plugin control.
-  LV_CFG=$($CONTAINER_CMD exec "$CONTAINER" sh -c 'grep -c "useLabelValuesForDiscovery=true" /opt/opennms/etc/org.opennms.plugins.tss.cortex.cfg 2>/dev/null; echo ""')
+  LV_CFG=$($CONTAINER_CMD exec "$CONTAINER" sh -c 'grep -c "useLabelValuesForDiscovery=true" /opt/opennms/etc/org.opennms.plugins.tss.cortex.cfg 2>/dev/null || true; echo ""')
   LV_CFG=$(echo "$LV_CFG" | tr -d '[:space:]')
   # Also verify the label values API endpoint itself works (this is what the feature uses)
   LV_RESPONSE=$(curl -s "${QUERY_URL}/api/v1/label/resourceId/values" 2>/dev/null)
@@ -1180,7 +1185,7 @@ echo "=== Section 12: Plugin Health ==="
 echo ""
 echo "--- Test 12.1: No excessive write errors ---"
 if [ -n "$CONTAINER" ]; then
-  ERROR_COUNT=$($CONTAINER_CMD exec "$CONTAINER" sh -c 'c=$(grep -c "Error occurred while storing samples" /opt/opennms/logs/karaf.log 2>/dev/null); echo "${c:-0}"')
+  ERROR_COUNT=$($CONTAINER_CMD exec "$CONTAINER" sh -c 'c=$(grep -c "Error occurred while storing samples" /opt/opennms/logs/karaf.log 2>/dev/null || true); echo "${c:-0}"')
   if [ "$ERROR_COUNT" -lt "50" ]; then
     pass "Write error count low ($ERROR_COUNT errors)"
   else
@@ -1193,7 +1198,7 @@ fi
 echo ""
 echo "--- Test 12.2: No plugin exceptions/stack traces ---"
 if [ -n "$CONTAINER" ]; then
-  EXCEPTION_COUNT=$($CONTAINER_CMD exec "$CONTAINER" sh -c 'c=$(grep -c "org.opennms.plugins.timeseries.cortex.*Exception" /opt/opennms/logs/karaf.log 2>/dev/null); echo "${c:-0}"')
+  EXCEPTION_COUNT=$($CONTAINER_CMD exec "$CONTAINER" sh -c 'c=$(grep -c "org.opennms.plugins.timeseries.cortex.*Exception" /opt/opennms/logs/karaf.log 2>/dev/null || true); echo "${c:-0}"')
   if [ "$EXCEPTION_COUNT" -lt "5" ]; then
     pass "Plugin exception count low ($EXCEPTION_COUNT)"
   else
@@ -1206,7 +1211,7 @@ fi
 echo ""
 echo "--- Test 12.3: No connection pool exhaustion ---"
 if [ -n "$CONTAINER" ]; then
-  POOL_ERRORS=$($CONTAINER_CMD exec "$CONTAINER" sh -c 'c=$(grep -c "bulkhead\|connection pool\|max concurrent" /opt/opennms/logs/karaf.log 2>/dev/null); echo "${c:-0}"')
+  POOL_ERRORS=$($CONTAINER_CMD exec "$CONTAINER" sh -c 'c=$(grep -c "bulkhead\|connection pool\|max concurrent" /opt/opennms/logs/karaf.log 2>/dev/null || true); echo "${c:-0}"')
   if [ "$POOL_ERRORS" -lt "5" ]; then
     pass "No connection pool issues ($POOL_ERRORS occurrences)"
   else
@@ -1226,7 +1231,7 @@ if [ -n "$CONTAINER" ]; then
     pass "Cortex plugin feature registered in Karaf"
   elif echo "$FEATURE_RESULT" | grep -q "SSH_FAILED"; then
     # SSH not available from host - try checking via container logs instead
-    FEATURE_LOG=$($CONTAINER_CMD exec "$CONTAINER" sh -c 'c=$(grep -c "cortex-plugin.*started\|Starting.*cortex" /opt/opennms/logs/karaf.log 2>/dev/null); echo "${c:-0}"')
+    FEATURE_LOG=$($CONTAINER_CMD exec "$CONTAINER" sh -c 'c=$(grep -c "cortex-plugin.*started\|Starting.*cortex" /opt/opennms/logs/karaf.log 2>/dev/null || true); echo "${c:-0}"')
     if [ "$FEATURE_LOG" -gt "0" ]; then
       pass "Plugin feature started (verified via logs)"
     else

@@ -1,5 +1,3 @@
-version: '3.8'
-
 # Usage:
 #   Prometheus backend (gold standard):  docker-compose --profile prometheus up -d
 #   Thanos backend (scale validation):   docker-compose --profile thanos up -d
@@ -51,6 +49,7 @@ services:
   thanos-receive:
     image: docker.io/thanosio/thanos:v0.35.1
     profiles: ["thanos"]
+    user: "0:0"    # Docker named volumes are root-owned; Thanos runs as uid 1001 by default
     command:
       - receive
       - --tsdb.path=/data
@@ -65,7 +64,6 @@ services:
       - "19291:19291"
       - "10902:10902"
       - "10901:10901"
-
   thanos-query:
     image: docker.io/thanosio/thanos:v0.35.1
     profiles: ["thanos"]
@@ -90,7 +88,7 @@ services:
       POSTGRES_USER: opennms
       POSTGRES_PASSWORD: opennms
       OPENNMS_DBNAME: opennms
-      JAVA_OPTS: "-Xms512m -Xmx1024m"
+      JAVA_OPTS: "-Xms512m -Xmx1024m -Dnetworkaddress.cache.negative.ttl=0"
     volumes:
       - opennms-thanos-data:/opennms-data
       - ./opennms-overlay/etc:/opt/opennms-etc-overlay

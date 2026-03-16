@@ -1,0 +1,160 @@
+name: E2E Smoke Tests
+
+on:
+  pull_request:
+    branches: [master]
+  push:
+    branches: [master]
+  workflow_dispatch:
+    inputs:
+      backend:
+        description: 'Backend to test against'
+        required: false
+        default: 'thanos'
+        type: choice
+        options:
+          - thanos
+          - prometheus
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        backend: [thanos, prometheus]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+          cache: maven
+
+      - name: Install sshpass
+        run: sudo apt-get install -y sshpass
+
+      - name: Build plugin
+        run: mvn clean install -DskipTests
+
+      - name: Deploy KAR
+        run: cp assembly/kar/target/opennms-cortex-tss-plugin.kar e2e/opennms-overlay/deploy/
+
+      - name: Start ${{ matrix.backend }} stack
+        working-directory: e2e
+        run: |
+          docker compose --profile ${{ matrix.backend }} up -d
+          echo "Waiting for OpenNMS..."
+          for i in $(seq 1 60); do
+            STATUS=$(curl -s -o /dev/null -w '%{http_code}' -u admin:admin http://localhost:8980/opennms/rest/info 2>/dev/null || echo "000")
+            if [ "$STATUS" = "200" ]; then
+              echo "OpenNMS is up after ~${i}0s"
+              break
+            fi
+            sleep 10
+          done
+
+      - name: Verify all containers are running
+        run: |
+          echo "=== Container status ==="
+          docker ps -a --format 'table {{.Names}}\t{{.Status}}'
+          echo ""
+          # Fail fast if any e2e container exited
+          EXITED=$(docker ps -a --filter "status=exited" --format '{{.Names}}' | grep e2e || true)
+          if [ -n "$EXITED" ]; then
+            echo "ERROR: Containers have exited: $EXITED"
+            for C in $EXITED; do
+              echo "=== Logs: $C ==="
+              docker logs "$C" 2>&1 | tail -20
+            done
+            exit 1
+          fi
+          echo "All containers running"
+
+      - name: Install Cortex plugin feature
+        run: |
+          ssh-keygen -R "[localhost]:8101" 2>/dev/null || true
+          # Wait for Karaf SSH to be ready, then install the feature
+          for attempt in $(seq 1 12); do
+            sshpass -p admin ssh -o StrictHostKeyChecking=no -o LogLevel=ERROR -p 8101 admin@localhost \
+              "feature:install opennms-plugins-cortex-tss" 2>&1 && break
+            sleep 5
+          done
+          # Wait for the feature to fully start (KAR extraction + bundle activation)
+          echo "Waiting for health check to pass..."
+          for attempt in $(seq 1 24); do
+            HEALTH=$(sshpass -p admin ssh -o StrictHostKeyChecking=no -o LogLevel=ERROR -p 8101 admin@localhost \
+              "opennms:health-check" 2>&1 || true)
+            echo "$HEALTH"
+            if echo "$HEALTH" | grep -q "Everything is awesome"; then
+              echo "Health check passed on attempt $attempt"
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "Health check did not pass within 2 minutes"
+          exit 1
+
+      - name: Wait for metrics
+        run: |
+          echo "Waiting for metrics to flow (up to 5 minutes)..."
+          for i in $(seq 1 60); do
+            COUNT=$(curl -s http://localhost:9090/api/v1/label/__name__/values 2>/dev/null \
+              | python3 -c "import sys,json; print(len(json.load(sys.stdin)['data']))" 2>/dev/null || echo "0")
+            if [ "$COUNT" -gt "10" ]; then
+              echo "Got $COUNT metrics after ~${i}x5s"
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "ERROR: No metrics after 5 minutes"
+          exit 1
+
+      - name: Run smoke tests
+        working-directory: e2e
+        run: bash smoke-test.sh --backend ${{ matrix.backend }}
+
+      - name: Collect logs on failure
+        if: failure()
+        working-directory: e2e
+        run: |
+          echo "=== All containers (including exited) ==="
+          docker ps -a --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}'
+          echo ""
+
+          # Show logs for ALL e2e containers, not just opennms
+          for CONTAINER in $(docker ps -a --format '{{.Names}}' | grep -E "e2e-"); do
+            echo "=== Logs: $CONTAINER ==="
+            docker logs "$CONTAINER" 2>&1 | tail -50
+            echo ""
+          done
+
+          OPENNMS=$(docker ps -a --format '{{.Names}}' | grep opennms | head -1)
+          if [ -n "$OPENNMS" ]; then
+            echo "=== Karaf log ==="
+            docker exec "$OPENNMS" cat /opt/opennms/logs/karaf.log 2>/dev/null | tail -100
+          fi
+
+      - name: Tear down
+        if: always()
+        working-directory: e2e
+        run: docker compose --profile ${{ matrix.backend }} down -v 2>/dev/null || true
+
+  unit-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+          cache: maven
+
+      - name: Run unit tests
+        run: mvn clean install

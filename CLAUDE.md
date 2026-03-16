@@ -15,17 +15,28 @@ Cortex TSS Plugin for OpenNMS — a `TimeSeriesStorage` implementation that stor
 
 Located in `e2e/`. Uses docker-compose with Prometheus or Thanos backends.
 
+### One-command E2E (preferred)
+```bash
+# Builds plugin, deploys KAR, starts stack, installs feature, waits for data, runs 45 tests, tears down:
+./e2e/run-e2e.sh --backend thanos
+
+# Skip rebuild if KAR already exists:
+./e2e/run-e2e.sh --backend thanos --no-build
+
+# Keep stack running after tests (for debugging):
+./e2e/run-e2e.sh --backend thanos --no-teardown
+```
+
+### Manual steps (if needed)
 ```bash
 cd e2e
-# Thanos backend:
 docker-compose --profile thanos up -d
 # (wait for OpenNMS + install plugin feature + wait for data)
 ./smoke-test.sh --backend thanos
-
-# Prometheus backend:
-docker-compose --profile prometheus up -d
-./smoke-test.sh --backend prometheus
 ```
+
+### CI
+GitHub Actions runs E2E on every PR against both Prometheus and Thanos backends. See `.github/workflows/e2e.yml`.
 
 ### Critical Rules for E2E Infrastructure
 
@@ -43,6 +54,16 @@ docker-compose --profile prometheus up -d
    ```
 
 6. **The Cortex plugin feature must be explicitly installed** after OpenNMS starts. The KAR auto-deploys and registers the feature repo, but the feature itself needs `feature:install opennms-plugins-cortex-tss` via Karaf SSH (port 8101, admin/admin).
+
+### Docker Compose Gotchas (CI vs Local)
+
+The E2E harness runs on both podman (macOS local) and Docker (GitHub Actions CI). Key differences:
+
+- **Volume permissions**: Docker named volumes are root-owned. Images running as non-root (e.g., Thanos runs as uid 1001) will get `permission denied`. Fix: `user: "0:0"` in docker-compose.yml for affected services.
+- **Container naming**: podman-compose uses `_` separators (`e2e_opennms_1`), Docker Compose v2 uses `-` separators (`e2e-opennms-1`). Scripts must handle both: `grep -E "[_-]opennms"`.
+- **`set -e` + `grep -c`**: `grep -c` returns exit code 1 on zero matches, which kills `set -e` scripts. Use `|| true` on grep commands, or avoid `set -e`.
+- **Matrix `fail-fast`**: GitHub Actions matrix defaults to `fail-fast: true`, canceling sibling jobs on first failure. Always set `fail-fast: false` for independent E2E profiles.
+- **Always collect ALL container logs on failure** — not just OpenNMS. A crashed sidecar (thanos-receive, postgres) can cause misleading symptoms (DNS failures, connection refused).
 
 ## Key Conventions
 
