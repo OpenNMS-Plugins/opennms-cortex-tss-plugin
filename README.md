@@ -80,11 +80,11 @@ config:edit org.opennms.plugins.tss.cortex
 property-set writeUrl http://localhost:9009/api/prom/push
 property-set readUrl http://localhost:9009/prometheus/api/v1
 property-set maxConcurrentHttpConnections 100
-property-set writeTimeoutInMs 1000
-property-set readTimeoutInMs 1000
+property-set writeTimeoutInMs 5000
+property-set readTimeoutInMs 5000
 property-set metricCacheSize 1000
 property-set externalTagsCacheSize 1000
-property-set bulkheadMaxWaitDurationInMs 9223372036854775807
+property-set bulkheadMaxWaitDuration 9223372036854775807
 
 config:update
 ```

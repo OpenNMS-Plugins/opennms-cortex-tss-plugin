@@ -420,7 +420,7 @@ The bulkhead gates all write operations, preventing the OkHttp dispatcher from b
 Bulkhead "asyncHttpCalls"
 ├── maxConcurrentCalls: maxConcurrentHttpConnections × 4
 │   (4x multiplier allows batching headroom)
-├── maxWaitDuration: bulkheadMaxWaitDurationInMs
+├── maxWaitDuration: bulkheadMaxWaitDuration
 │   (default: Long.MAX_VALUE ≈ 292 million years — effectively unlimited)
 ├── fairCallHandling: true (FIFO ordering)
 │
@@ -457,7 +457,7 @@ All properties are managed via OSGi Config Admin, PID: `org.opennms.plugins.tss.
 | `readTimeoutInMs` | long | `5000` | HTTP read request timeout (ms) |
 | `metricCacheSize` | long | `1000` | Guava cache max entries for metric metadata |
 | `externalTagsCacheSize` | long | `1000` | Guava cache max entries for external tags |
-| `bulkheadMaxWaitDurationInMs` | long | `Long.MAX_VALUE` | Max time a write can wait for a bulkhead permit |
+| `bulkheadMaxWaitDuration` | long | `Long.MAX_VALUE` | Max time a write can wait for a bulkhead permit (ms) |
 | `maxSeriesLookback` | long | `7776000` (90 days) | Time range for `/series` discovery queries (seconds) |
 | `organizationId` | String | `""` (disabled) | Cortex multi-tenancy `X-Scope-OrgID` header value |
 | `useLabelValuesForDiscovery` | boolean | `false` | Enable two-phase label values discovery |
@@ -715,7 +715,7 @@ KV store write failures are logged and tracked (`extTagPutTransactionFailed`) bu
 
 | Class | Tests | Backend | Notes |
 |---|---|---|---|
-| `CortexTSSIntegrationTest` | ~15 | Cortex (Docker) | Extends `AbstractStorageIntegrationTest` from integration-api |
+| `CortexTSSIntegrationTest` | varies | Cortex (Docker) | Extends `AbstractStorageIntegrationTest` from integration-api |
 | `NMS16271_IT` | 1 | Cortex (Docker) | NaN filtering regression (NMS-16271) |
 
 The integration tests use a `docker-compose.yaml` bundled in test resources that spins up a single-process Cortex instance.
