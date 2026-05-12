@@ -30,3 +30,9 @@ java/bin/
 *.swp
 *.iml
 
+# E2E test artifacts
+*.kar
+e2e/opennms-overlay/etc/org.opennms.plugins.tss.cortex.cfg
+
+# Tool workspace artifacts
+docs/superpowers/

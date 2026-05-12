@@ -34,6 +34,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashSet;
@@ -62,6 +63,7 @@ import org.opennms.integration.api.v1.timeseries.Tag;
 import org.opennms.integration.api.v1.timeseries.TagMatcher;
 import org.opennms.integration.api.v1.timeseries.TimeSeriesFetchRequest;
 import org.opennms.integration.api.v1.timeseries.TimeSeriesStorage;
+import org.opennms.integration.api.v1.timeseries.immutables.ImmutableTagMatcher;
 import org.opennms.integration.api.v1.timeseries.immutables.ImmutableTagMatcher.TagMatcherBuilder;
 import org.opennms.timeseries.cortex.shaded.resilience4j.bulkhead.Bulkhead;
 import org.opennms.timeseries.cortex.shaded.resilience4j.bulkhead.BulkheadConfig;
@@ -425,11 +427,18 @@ public class CortexTSS implements TimeSeriesStorage {
     public List<Metric> findMetrics(Collection<TagMatcher> tagMatchers, String clientID) throws StorageException {
         LOG.info("Retrieving metrics for tagMatchers: {}", tagMatchers);
         Objects.requireNonNull(tagMatchers);
-        Instant instant = Instant.now();
-        long start = instant.getEpochSecond() - config.getMaxSeriesLookback(); // 90 days in seconds
-        if(tagMatchers.isEmpty()) {
-            throw new IllegalArgumentException("tagMatchers cannot be null");
+        if (tagMatchers.isEmpty()) {
+            throw new IllegalArgumentException("tagMatchers cannot be empty");
         }
+
+        // Use label values API for broad wildcard discovery queries (much cheaper on Thanos)
+        if (config.isUseLabelValuesForDiscovery() && isWildcardDiscoveryQuery(tagMatchers)) {
+            return findMetricsViaLabelValues(tagMatchers, clientID);
+        }
+
+        // Original /series path for targeted queries
+        Instant instant = Instant.now();
+        long start = instant.getEpochSecond() - config.getMaxSeriesLookback();
         String url = String.format("%s/series?match[]={%s}&start=%d",
                 config.getReadUrl(),
                 tagMatchersToQuery(tagMatchers),
@@ -438,6 +447,63 @@ public class CortexTSS implements TimeSeriesStorage {
         List<Metric> metrics = ResultMapper.fromSeriesQueryResult(json, kvStore);
         metrics.forEach(m -> this.metricCache.put(m.getKey(), m));
         return metrics;
+    }
+
+    /**
+     * Uses the Prometheus label values API for initial resource discovery,
+     * then batches targeted /series queries for full metric details.
+     *
+     * This is dramatically cheaper on Thanos backends than a single /series
+     * query with a broad .* regex, because:
+     * 1. Label values queries are index-only (no chunk decompression)
+     * 2. Batched /series queries use exact-match alternation (direct index lookups)
+     */
+    private List<Metric> findMetricsViaLabelValues(Collection<TagMatcher> tagMatchers, String clientID) throws StorageException {
+        LOG.info("Using label values API for discovery query: {}", tagMatchers);
+        Instant now = Instant.now();
+        long start = now.getEpochSecond() - config.getMaxSeriesLookback();
+        long end = now.getEpochSecond();
+
+        // Phase 1: Get unique resourceId values via label values API
+        String matchParam = String.format("{%s}", tagMatchersToQuery(tagMatchers));
+        String labelValuesUrl = String.format("%s/label/resourceId/values?match[]=%s&start=%d&end=%d",
+                config.getReadUrl(),
+                matchParam,
+                start,
+                end);
+        String labelValuesJson = makeCallToQueryApi(labelValuesUrl, clientID);
+        List<String> resourceIds = ResultMapper.parseLabelValuesResponse(labelValuesJson);
+
+        if (resourceIds.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        LOG.info("Label values discovery found {} unique resourceIds, batching /series queries", resourceIds.size());
+
+        // Phase 2: Batch /series queries using exact-match alternation
+        List<Metric> allMetrics = new ArrayList<>();
+        int batchSize = config.getDiscoveryBatchSize();
+        for (int i = 0; i < resourceIds.size(); i += batchSize) {
+            List<String> batch = resourceIds.subList(i, Math.min(i + batchSize, resourceIds.size()));
+            String batchRegex = buildBatchResourceIdRegex(batch);
+
+            TagMatcher batchMatcher = ImmutableTagMatcher.builder()
+                    .type(TagMatcher.Type.EQUALS_REGEX)
+                    .key(IntrinsicTagNames.resourceId)
+                    .value(batchRegex)
+                    .build();
+
+            String seriesUrl = String.format("%s/series?match[]={%s}&start=%d&end=%d",
+                    config.getReadUrl(),
+                    tagMatchersToQuery(Collections.singletonList(batchMatcher)),
+                    start,
+                    end);
+            String seriesJson = makeCallToQueryApi(seriesUrl, clientID);
+            allMetrics.addAll(ResultMapper.fromSeriesQueryResult(seriesJson, kvStore));
+        }
+
+        allMetrics.forEach(m -> this.metricCache.put(m.getKey(), m));
+        return allMetrics;
     }
 
     /** Returns the full metric (incl. meta data from the database).
@@ -665,5 +731,36 @@ public class CortexTSS implements TimeSeriesStorage {
     @Override
     public boolean supportsAggregation(Aggregation aggregation) {
         return SUPPORTED_AGGREGATION.contains(aggregation);
+    }
+
+    /**
+     * Detects whether a set of tag matchers represents a broad wildcard discovery query.
+     * These are generated by TimeseriesSearcher.getMetricsBelowWildcardPath() and match
+     * the pattern: resourceId =~ "^some/path/.*$"
+     *
+     * Intentionally narrow: only matches a single EQUALS_REGEX matcher on resourceId
+     * ending with "/.*$". Multi-matcher queries and other patterns fall back to the
+     * standard /series path, which is correct but slower on large Thanos deployments.
+     */
+    static boolean isWildcardDiscoveryQuery(Collection<TagMatcher> tagMatchers) {
+        if (tagMatchers.size() != 1) {
+            return false;
+        }
+        TagMatcher matcher = tagMatchers.iterator().next();
+        return TagMatcher.Type.EQUALS_REGEX.equals(matcher.getType())
+                && IntrinsicTagNames.resourceId.equals(matcher.getKey())
+                && matcher.getValue().endsWith("/.*$");
+    }
+
+    /**
+     * Builds a regex alternation pattern for exact-matching a batch of resourceId values.
+     * Escapes regex metacharacters in the values so Thanos/Prometheus can do direct
+     * index lookups instead of regex scanning.
+     */
+    static String buildBatchResourceIdRegex(List<String> resourceIds) {
+        String alternation = resourceIds.stream()
+                .map(id -> id.replaceAll("([\\\\{}()\\[\\].+*?^$|\\-])", "\\\\$1"))
+                .collect(Collectors.joining("|"));
+        return "^(" + alternation + ")$";
     }
 }
