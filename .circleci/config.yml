@@ -33,7 +33,7 @@ commands:
                 git checkout --force -B "${CIRCLE_BRANCH}" "${CIRCLE_SHA1}"
               fi
   build:
-    description: "Build Cortex Plugin"
+    description: "Build Prometheus RemoteWrite Plugin"
     steps:
       - restore_cache:
           keys:

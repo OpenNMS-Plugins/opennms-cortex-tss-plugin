@@ -1,12 +1,14 @@
-# OpenNMS Cortex Plugin [![CircleCI](https://circleci.com/gh/OpenNMS/opennms-cortex-tss-plugin.svg?style=svg)](https://circleci.com/gh/OpenNMS/opennms-cortex-tss-plugin)
+# OpenNMS Prometheus RemoteWrite Plugin [![CircleCI](https://circleci.com/gh/OpenNMS-Plugins/opennms-prometheus-remotewrite-plugin.svg?style=svg)](https://circleci.com/gh/OpenNMS-Plugins/opennms-prometheus-remotewrite-plugin)
 
-This plugin exposes an implementation of the [TimeSeriesStorage](https://github.com/OpenNMS/opennms-integration-api/blob/v0.4.1/api/src/main/java/org/opennms/integration/api/v1/timeseries/TimeSeriesStorage.java#L40) interface that converts metrics to a Prometheus model and delegates writes & reads to [Cortex](https://cortexmetrics.io/).
+This plugin exposes an implementation of the [TimeSeriesStorage](https://github.com/OpenNMS/opennms-integration-api/blob/v0.4.1/api/src/main/java/org/opennms/integration/api/v1/timeseries/TimeSeriesStorage.java#L40) interface that converts metrics to a Prometheus model and delegates writes & reads via the Prometheus `remote_write` / `remote_read` protocol to any compatible backend (e.g. [Cortex](https://cortexmetrics.io/), Mimir, Thanos, VictoriaMetrics, Prometheus itself).
 
-![arch](assets/cortex-plugin-arch.png "Cortex Plugin Architecture")
+> **Note:** This plugin was previously published as `opennms-cortex-tss-plugin`. It has been renamed to reflect that it works with any Prometheus `remote_write`-compatible backend, not just Cortex. The OSGi configuration PID (`org.opennms.plugins.tss.cortex`) and Java packages are unchanged for backward compatibility with existing deployments.
+
+![arch](assets/prometheus-remotewrite-plugin-arch.png "Plugin Architecture")
 
 ## Usage
 
-Start Cortex - see https://cortexmetrics.io/docs/getting-started/
+Start a Prometheus `remote_write`-compatible backend. For Cortex, see https://cortexmetrics.io/docs/getting-started/
 
 You can also download:
 
@@ -31,11 +33,11 @@ org.opennms.timeseries.tin.metatags.tag.ifDescr=${interface:if-description}' >> 
 
 From the OpenNMS Karaf shell:
 ```
-feature:repo-add mvn:org.opennms.plugins.timeseries/cortex-karaf-features/1.0.0-SNAPSHOT/xml
-feature:install opennms-plugins-cortex-tss
+feature:repo-add mvn:org.opennms.plugins.timeseries/prometheus-remotewrite-karaf-features/1.0.0-SNAPSHOT/xml
+feature:install opennms-plugins-prometheus-remotewrite
 ```
 
-Configure (you can omit that if you use the default values):
+Configure (you can omit that if you use the default values). The configuration PID is unchanged from the previous `opennms-cortex-tss-plugin` release so existing deployments keep working:
 ```
 config:edit org.opennms.plugins.tss.cortex
 
@@ -56,7 +58,7 @@ Update automatically:
 bundle:watch *
 ```
 
-## Cortex tips
+## Backend tips (Cortex example)
 
 ### View the ring
 

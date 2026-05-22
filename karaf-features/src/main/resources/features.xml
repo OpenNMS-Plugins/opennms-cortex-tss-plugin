@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<features name="openmms-plugins-cortex-tss-features" xmlns="http://karaf.apache.org/xmlns/features/v1.4.0">
+<features name="opennms-plugins-prometheus-remotewrite-features" xmlns="http://karaf.apache.org/xmlns/features/v1.4.0">
 
-    <feature name="opennms-plugins-cortex-tss" description="OpenNMS :: Plugins :: Cortex TSS" version="${project.version}">
+    <feature name="opennms-plugins-prometheus-remotewrite" description="OpenNMS :: Plugins :: Prometheus RemoteWrite" version="${project.version}">
         <feature dependency="true">aries-blueprint</feature>
         <feature dependency="true">shell</feature>
-        <feature dependency="true">tss-cortex-guava</feature>
+        <feature dependency="true">tss-prometheus-remotewrite-guava</feature>
         <feature version="${opennms.api.version}" dependency="true">opennms-integration-api</feature>
-        <feature version="${okhttp.version}" dependency="true">tss-cortex-okhttp</feature>
+        <feature version="${okhttp.version}" dependency="true">tss-prometheus-remotewrite-okhttp</feature>
         <bundle dependency="true">mvn:com.google.protobuf/protobuf-java/${protoc.version}</bundle>
         <bundle dependency="true">mvn:org.xerial.snappy/snappy-java/${snappy.version}</bundle>
         <bundle dependency="true">mvn:io.dropwizard.metrics/metrics-core/${metrics.version}</bundle>
@@ -15,20 +15,20 @@
         <bundle>mvn:com.fasterxml.jackson.core/jackson-core/${jackson.version}</bundle>
         <bundle>mvn:com.fasterxml.jackson.core/jackson-databind/${jackson.version}</bundle>
         <bundle dependency="true">mvn:org.opennms.plugin.timeseries.cortex.wrap/resilience4j/${project.version}</bundle>
-        <bundle>mvn:org.opennms.plugins.timeseries/cortex-plugin/${project.version}</bundle>
+        <bundle>mvn:org.opennms.plugins.timeseries/prometheus-remotewrite-plugin/${project.version}</bundle>
         <capability>
           osgi.service;objectClass=org.opennms.integration.api.v1.distributed.KeyValueStore;effective:=active
         </capability>
     </feature>
 
-    <feature name="tss-cortex-okhttp" description="okhttp" version="${okhttp.version}">
+    <feature name="tss-prometheus-remotewrite-okhttp" description="okhttp" version="${okhttp.version}">
         <bundle dependency="true">wrap:mvn:com.google.code.findbugs/jsr305/3.0.2</bundle>
         <bundle dependency="true">mvn:org.apache.servicemix.bundles/org.apache.servicemix.bundles.okio/${okio.bundle.version}</bundle>
         <bundle dependency="true">mvn:org.apache.servicemix.bundles/org.apache.servicemix.bundles.okhttp/${okhttp.bundle.version}</bundle>
         <bundle dependency="true">wrap:mvn:com.squareup.okhttp3/logging-interceptor/${okhttp.version}</bundle>
     </feature>
 
-    <feature name="tss-cortex-guava" description="guava" version="${guava.version}">
+    <feature name="tss-prometheus-remotewrite-guava" description="guava" version="${guava.version}">
         <bundle dependency="true">mvn:com.google.guava/guava/${guava.version}</bundle>
         <bundle dependency="true">mvn:com.google.guava/failureaccess/1.0.1</bundle>
     </feature>
