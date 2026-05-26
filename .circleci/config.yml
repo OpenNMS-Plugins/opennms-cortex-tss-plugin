@@ -8,7 +8,7 @@ executors:
           MAVEN_OPTS: -Xmx1g
   system-test-executor:
     machine:
-      image: ubuntu-2204:current
+      image: ubuntu-2204:2024.05.1
 
 orbs:
   sign-packages: opennms/sign-packages@2.1.3
