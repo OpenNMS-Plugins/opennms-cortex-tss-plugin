@@ -8,7 +8,7 @@ executors:
           MAVEN_OPTS: -Xmx1g
   system-test-executor:
     machine:
-      image: ubuntu-2204:current
+      image: ubuntu-2204:2024.05.1
 
 orbs:
   sign-packages: opennms/sign-packages@2.1.3
@@ -33,7 +33,7 @@ commands:
                 git checkout --force -B "${CIRCLE_BRANCH}" "${CIRCLE_SHA1}"
               fi
   build:
-    description: "Build Cortex Plugin"
+    description: "Build Prometheus RemoteWrite Plugin"
     steps:
       - restore_cache:
           keys:

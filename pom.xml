@@ -2,13 +2,13 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
     <groupId>org.opennms.plugins.timeseries</groupId>
-    <artifactId>cortex-parent</artifactId>
-    <name>OpenNMS :: Plugins :: Cortex TSS :: Parent</name>
+    <artifactId>prometheus-remotewrite-parent</artifactId>
+    <name>OpenNMS :: Plugins :: Prometheus RemoteWrite :: Parent</name>
     <packaging>pom</packaging>
     <version>2.0.7-SNAPSHOT</version>
 
-    <description>Time-Series Storage Plugin for OpenNMS</description>
-    <url>https://github.com/OpenNMS/opennms-cortex-tss-plugin/</url>
+    <description>Time-Series Storage Plugin for OpenNMS (Prometheus remote_write)</description>
+    <url>https://github.com/OpenNMS-Plugins/opennms-prometheus-remotewrite-plugin/</url>
 
     <licenses>
         <license>
@@ -18,8 +18,8 @@
     </licenses>
 
     <scm>
-        <url>https://github.com/OpenNMS/opennms-cortex-tss-plugin</url>
-        <connection>scm:git:git@github.com:OpenNMS/opennms-cortex-tss-plugin.git</connection>
+        <url>https://github.com/OpenNMS-Plugins/opennms-prometheus-remotewrite-plugin</url>
+        <connection>scm:git:git@github.com:OpenNMS-Plugins/opennms-prometheus-remotewrite-plugin.git</connection>
         <tag>HEAD</tag>
     </scm>
 

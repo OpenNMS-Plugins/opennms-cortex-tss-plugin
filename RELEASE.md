@@ -23,5 +23,5 @@ git tag -u opennms@opennms.org -s v2.0.0
 
 Rename:
 ```
-mv org.opennms.plugins.timeseries.cortex.assembly.kar-<VERSION>.kar opennms-cortex-tss-plugin.kar
+mv org.opennms.plugins.timeseries.prometheus.remotewrite.assembly.kar-<VERSION>.kar opennms-prometheus-remotewrite-plugin.kar
 ```

@@ -1,12 +1,12 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <parent>
         <groupId>org.opennms.plugins.timeseries</groupId>
-        <artifactId>cortex-parent</artifactId>
+        <artifactId>prometheus-remotewrite-parent</artifactId>
         <version>2.0.7-SNAPSHOT</version>
     </parent>
     <modelVersion>4.0.0</modelVersion>
-    <artifactId>cortex-karaf-features</artifactId>
-    <name>OpenNMS :: Plugins :: Cortex TSS :: Karaf Features</name>
+    <artifactId>prometheus-remotewrite-karaf-features</artifactId>
+    <name>OpenNMS :: Plugins :: Prometheus RemoteWrite :: Karaf Features</name>
     <packaging>pom</packaging>
 
     <build>
@@ -82,9 +82,9 @@
                                 <feature>framework</feature>
                             </framework>
                             <features>
-                                <feature>opennms-plugins-cortex-tss</feature>
-                                <feature>tss-cortex-okhttp</feature>
-                                <feature>tss-cortex-guava</feature>
+                                <feature>opennms-plugins-prometheus-remotewrite</feature>
+                                <feature>tss-prometheus-remotewrite-okhttp</feature>
+                                <feature>tss-prometheus-remotewrite-guava</feature>
                             </features>
                         </configuration>
                     </execution>
@@ -112,7 +112,7 @@
 
         <dependency>
              <groupId>org.opennms.plugins.timeseries</groupId>
-             <artifactId>cortex-plugin</artifactId>
+             <artifactId>prometheus-remotewrite-plugin</artifactId>
             <version>${project.version}</version>
             <scope>provided</scope>
         </dependency>
