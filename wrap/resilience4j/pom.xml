@@ -2,13 +2,13 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <parent>
         <groupId>org.opennms.plugins.timeseries</groupId>
-        <artifactId>cortex-wrap</artifactId>
+        <artifactId>prometheus-remotewrite-wrap</artifactId>
         <version>2.0.7-SNAPSHOT</version>
     </parent>
     <modelVersion>4.0.0</modelVersion>
     <groupId>org.opennms.plugin.timeseries.cortex.wrap</groupId>
     <artifactId>resilience4j</artifactId>
-    <name>OpenNMS :: Plugins :: Cortex TSS :: Wrap :: resilience4j</name>
+    <name>OpenNMS :: Plugins :: Prometheus RemoteWrite :: Wrap :: resilience4j</name>
     <packaging>bundle</packaging>
 
     <build>
