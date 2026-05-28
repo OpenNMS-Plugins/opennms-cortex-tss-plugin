@@ -85,7 +85,7 @@
         <osgi.compendium.version>5.0.0</osgi.compendium.version>
         <protoc.version>3.25.3</protoc.version>
         <resilience4j.version>1.7.1</resilience4j.version>
-        <slf4j-api.version>1.7.36</slf4j-api.version>
+        <slf4j-api.version>2.0.0</slf4j-api.version>
         <snappy.version>1.1.10.5</snappy.version>
     </properties>
 
