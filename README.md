@@ -1,5 +1,4 @@
-# OpenNMS Prometheus RemoteWrite Plugin [![CircleCI](https://circleci.com/gh/OpenNMS-Plugins/opennms-prometheus-remotewrite-plugin.svg?style=svg)](https://circleci.com/gh/OpenNMS-Plugins/opennms-prometheus-remotewrite-plugin)
-
+# OpenNMS Prometheus RemoteWrite Plugin [![CircleCI](https://dl.circleci.com/status-badge/img/gh/OpenNMS-Plugins/opennms-cortex-tss-plugin/tree/release-2.x.svg?style=svg)](https://dl.circleci.com/status-badge/redirect/gh/OpenNMS-Plugins/opennms-cortex-tss-plugin/tree/release-2.x)
 This plugin exposes an implementation of the [TimeSeriesStorage](https://github.com/OpenNMS/opennms-integration-api/blob/v0.4.1/api/src/main/java/org/opennms/integration/api/v1/timeseries/TimeSeriesStorage.java#L40) interface that converts metrics to a Prometheus model and delegates writes & reads via the Prometheus `remote_write` / `remote_read` protocol to any compatible backend (e.g. [Cortex](https://cortexmetrics.io/), Mimir, Thanos, VictoriaMetrics, Prometheus itself).
 
 > **Note:** This plugin was previously published as `opennms-cortex-tss-plugin`. It has been renamed to reflect that it works with any Prometheus `remote_write`-compatible backend, not just Cortex. The OSGi configuration PID (`org.opennms.plugins.tss.cortex`) and Java packages are unchanged for backward compatibility with existing deployments.
